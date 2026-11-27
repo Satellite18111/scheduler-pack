@@ -1,121 +1,125 @@
-# 调度包 2.1（网页 UI 版）
+# 调度包（Scheduler Pack）
 
-形态参考 [chihqiang/vtools](https://github.com/chihqiang/vtools)（Vue 写的网页工具站，Apache-2.0）的「卡片式工具集」布局思路，
-不再用原生控件堆页面，改成 **WebView + 单页 HTML/CSS/JS**，原生只保留必要能力（root shell、uperf 调度、悬浮窗服务、通知、日志导出）。
+一个很轻的 Android root 调度前端：**不自己调度，只当 uperf 的遥控器 + 看板**。
+界面是 WebView 套一张单页 HTML，原生侧只有几个 Java 类负责 root shell、悬浮窗、通知和日志。
 
-> 两个同名仓库容易混：`chihqiang/vtools` 是网页工具站（Apache-2.0，与本项目无代码关系，只借鉴界面形态）；
-> `helloklf/vtools` 是 Scene 骁龙工具箱（GPL-3.0，本项目只对齐功能清单、不引用任何源码、不引入其二进制）。
-> 详见 `docs/GPL-审计-2026-11-27.md`。
+- 包名：`dev.local.netspeed`
+- 版本：2.1.0（versionCode 3），minSdk 26 / targetSdk 34
+- 验证设备：iPlay30 平板（MT6771V/W，8 核 Mali-G72 MP3），LineageOS 21 GSI（Android 14），Magisk root
+- 依赖：**零第三方库**，只用 `android.jar`；构建不依赖 Gradle
 
-## 结构
+## 它做什么
+
+| 能力 | 实现方式 |
+| --- | --- |
+| 五档调度切换（auto / balance / powersave / performance / fast） | 写 `/sdcard/Android/yc/uperf/cur_powermode.txt` |
+| 分应用调度、熄屏规则、默认规则 | 读写 `perapp_powermode.txt` |
+| 悬浮窗叠加网速 / FPS / CPU 频率 / GPU 频率 / 温度 | 前台服务 + `TYPE_APPLICATION_OVERLAY` |
+| 常驻通知 + 三个快捷切档按钮 | `MonitorService` |
+| 可拖动的原生调度面板 | 自绘深色卡片窗口，位置记在 `ns.xml` |
+| 实时监控（FPS、负载、逐核频率、内存、电池、温度） | 每秒读 sysfs / `dumpsys SurfaceFlinger` |
+| 帧率记录导出 CSV | 9 列采样，落 `/sdcard/NetSpeedLogs/perf-*.csv` |
+| 充电曲线 + 充电阈值提醒 | 读 `battery/`，到阈值发通知（不断电，见限制） |
+| 温度保护 | 超阈值降档，回落 3°C 恢复 |
+| 诊断日志导出 | crash / ANR / system / dmesg 打包 |
+
+## 它不是
+
+- 不是调频工具。`scaling_min_freq` / `scaling_max_freq` 在本机是 `0444` 只读，MTK 的 `/proc/ppm/policy/*` 被 uperf 占用，所以**没有做频率滑杆**，只做只读展示。
+- 不是充电控制器。本机内核没有 `charging_enabled` / `input_suspend` 这类停充节点，充电阈值只能提醒。
+- 不是 Scene / VTools 的移植版，也不含它们任何代码，详见下面的许可说明。
+
+## 架构
 
 ```
 scheduler-web/
-├─ assets/www/index.html      # 全部界面（深色卡片、五个 tab、Canvas 曲线、开关/弹层）
+├─ assets/www/
+│  ├─ index.html            # 全部界面：五个 tab、Canvas 曲线、开关、弹层、toast
+│  └─ icon.png              # 由 res 图标复制，header 使用
 ├─ src/dev/local/netspeed/
-│  ├─ MainActivity.java       # WebView 宿主 + 注入 Native 桥
-│  ├─ NativeBridge.java       # 快照/切模式/分应用规则/偏好/日志导出
-│  ├─ MonitorService.java     # 悬浮窗、通知、调度面板、充电与温控自动化（沿用）
-│  ├─ PerAppRules.java        # perapp_powermode.txt 读写（沿用）
-│  ├─ InfoCollector.java      # SoC/CPU/GPU 静态信息（沿用）
-│  ├─ ModeUtil.java / BootReceiver.java
-├─ res/mipmap-*/ic_launcher.png
-└─ build.ps1                  # aapt2 + javac + d8 + zipalign + apksigner（无需 Gradle）
+│  ├─ MainActivity.java     # WebView 宿主，注入 Native 桥
+│  ├─ NativeBridge.java     # 每秒快照回传、切档、规则、偏好、CSV/日志导出
+│  ├─ MonitorService.java   # 悬浮窗、通知、调度面板、充电与温控自动化
+│  ├─ PerAppRules.java      # perapp_powermode.txt 解析/写回
+│  ├─ InfoCollector.java    # SoC / CPU / GPU 静态信息
+│  ├─ ModeUtil.java         # 五档常量与索引
+│  └─ BootReceiver.java     # 开机拉起服务
+├─ res/mipmap-*/            # 图标五密度
+├─ AndroidManifest.xml
+├─ build.ps1                # aapt2 → javac → d8 → zipalign → apksigner
+└─ docs/                    # 审计与实测记录
 ```
 
-包名仍是 `dev.local.netspeed`，与旧版同签名，`adb install -r` 即覆盖升级，root 授权、悬浮窗权限、偏好与分应用规则都保留。
-
-## 界面
-
-- **首页**：当前模式大字 + 五档快捷切换 + 六张工具卡（实时监控 / 分应用调度 / 悬浮窗 / 日志导出 / 自动化 / 设备信息）。
-- **调度**：五档单选、分应用默认规则与熄屏规则、弹出面板与重启服务。
-- **监控**：FPS / CPU 负载 / GPU 占用 / 最高频率四个数字块，60 秒 Canvas 曲线，八核频率横条，内存、电池电流电压、CPU 与电池温度，帧率记录与 CSV 导出。
-- **应用**：搜索 + 应用列表，点开弹层选档或「跟随默认」。
-- **更多**：六个悬浮窗显示项、充电与温控自动化、诊断日志导出、设备信息。
+原生与网页的数据约定：`window.__ev(<json>)` 单向推送，`type` 为 `snap` / `info` / `apps` / `log` / `toast`；
+shell 采样用自定的 `R:/T:/C:/G:/F:/CT:/BT:/BS:/P:` 标记 + `__NS_END__` 结束符，避免 `dumpsys` 输出干扰解析。
 
 ## 构建
 
+环境：JDK 17+（本项目用 JDK 25 编译 `--release 17`）、Android SDK `build-tools` 与 `platforms/android-<api>`，不需要 Gradle。
+
 ```powershell
-cd E:\项目\bilibili\scheduler-web
+# 修改 build.ps1 顶部三个变量指向本机 SDK 路径
+$root = "…\scheduler-web"
+$bt   = "…\android-sdk\build-tools\35.0.0"
+$jar  = "…\android-sdk\platforms\android-35\android.jar"
+
 .\build.ps1
 adb install -r .\调度包-2.1.0.apk
 ```
 
-- 工具链：JDK 25 + `E:\bili-build\android-sdk\build-tools\37.0.0` + `platforms\android-37`。
-- 资源先拷到 `%TEMP%\spres` 再 `aapt2 compile`（中文路径问题）。
-- **assets 不要用 `aapt2 link -A`**：Windows 下会把目录分隔符写成反斜杠，WebView 找不到 `assets/www/index.html`；
-  `build.ps1` 改为链接后按正斜杠写入 zip 条目。
+两个已知坑：
+
+1. 资源先复制到 `%TEMP%` 再 `aapt2 compile`，否则中文路径会失败；
+2. **不要用 `aapt2 link -A assets`**，Windows 下会把分隔符写成反斜杠，WebView 报 `ERR_FILE_NOT_FOUND`；脚本改为链接后用 `System.IO.Compression` 以正斜杠写入 `assets/www/index.html`。
+
+仓库里的 `debug.keystore` 是 debug 签名（口令均为 `android`），只用于本机覆盖升级。要对外分发请换自己的密钥重新签名。
 
 ## 数据源
 
-| 项 | 来源 |
+| 项 | 路径 |
 | --- | --- |
-| 调度模式 | `/sdcard/Android/yc/uperf/cur_powermode.txt`（写文件即热切换） |
-| uperf 守护 | `ps -A -o NAME | grep -c '^uperf$'` |
+| 当前模式 | `/sdcard/Android/yc/uperf/cur_powermode.txt` |
+| 分应用规则 | `/sdcard/Android/yc/uperf/perapp_powermode.txt` |
 | 逐核负载 | `/sys/devices/system/cpu/rq-stats/cpu_normalized_load` |
 | 逐核频率 | `/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq` |
-| GPU 占用 | `/sys/module/ged/parameters/gpu_loading` |
+| GPU 占用 / 频率 | `/sys/module/ged/parameters/gpu_loading`、`/sys/kernel/debug/clk/mfg_sel/clk_rate` |
+| CPU 温度 | thermal_zone type `mtktscpu` |
+| 电池 | `/sys/class/power_supply/battery/{current_now,voltage_now,temp,capacity,status}` |
 | FPS | `dumpsys SurfaceFlinger` 的 FPS ring buffer 最新一条 |
-| 温度 | thermal_zone `mtktscpu` / `battery/temp` |
-| 分应用规则 | `/sdcard/Android/yc/uperf/perapp_powermode.txt` |
+| 偏好 | `/data/data/dev.local.netspeed/shared_prefs/ns.xml` |
 
-## 已知限制
+## 已知限制（都是实测结论，不是没做）
 
-- GPU 空闲时读 0%，属 `gpu_loading` 本身行为；FPS 在静态页面会掉到个位数（SurfaceFlinger 只在有帧时计数）。
-- 面板是原生 View（沿用旧服务），未跟随网页主题；打开面板时会按偏好回填开关。
-- 模式、分应用规则依赖 root；无 root 时只能看数据。
+- 逐核频率与上限**只读**：本机 cpufreq 的 `scaling_*_freq` 是 `0444`；PPM 节点被 uperf 抢占，连写 6 次上限在 1131→1625 MHz 之间自行跳变，写了等于没写。
+- 充电阈值**只提醒不断电**：`battery/` 下无 `charging_enabled` / `input_suspend`；`en_power_path` 写 0 后 `status` 仍是 Charging；`input_current` 写入会被截断（写 100 读回 256）。
+- GPU 空闲读 0%，是 `gpu_loading` 本身行为；静态页面 FPS 会掉到个位数，因为 SurfaceFlinger 只在有帧时计数。
+- 采样是每秒起一次 `su` shell，比常驻 daemon 费电，精度也只有 1 秒级。
+- 只在上述设备与 ROM 上验证过。换机型、换内核、换 uperf 版本都可能失效。
 
-## 修复记录 2026-11-26（设置开关点不动）
+## 许可
 
-- 现象：「更多」页悬浮窗/自动化开关，手指点在右侧开关本体区域无效，点同行文字区有效。
-- 实测：设备横屏 2000×1200，x≈1880 之后约 120px 的右边缘竖条会吞掉触摸（系统手势/边缘区域），而开关原来贴着卡片右边缘（中心 x≈1860、右端 x≈1936），大部分落在死区里。
-- 修复：`.row/.modeitem/.approw` 增加 `padding-right:58px`，开关与右上角档位标签整体内缩约 100px（屏幕像素），落在可点区域；`.sw` 保持 `pointer-events:none`，整行即热区。
-- 顺带修：调度页在快照到达前就渲染，导致「全局模式」单选全空、状态显示「uperf 未运行」。新增 `syncSched()`，在每次快照和切页时同步单选/状态/默认规则文本。
+本项目采用 **MIT License**（见 [LICENSE](LICENSE)）：可自由使用、修改、商用、再分发，保留版权声明即可，无 copyleft 义务。
 
-## 2026-11-26 二次调整：左上角换成程序图标
+与几个同名项目的真实关系，避免误读：
 
-- 左上角原来的滑杆图标只是占位，被点一下跳「更多」页容易误解为设置入口。
-- 现改为直接显示应用图标：`res/mipmap-xxxhdpi/ic_launcher.png` 复制为 `assets/www/icon.png`，header 用 `<img class="logo">` 渲染（52px 圆角），构建脚本自动枚举 assets 目录，无需改打包逻辑。
-- 同时移除 `.brand` 的点击行为，品牌区只作标识，不再兼任跳转。
+| 项目 | 许可 | 与本项目的关系 |
+| --- | --- | --- |
+| [chihqiang/vtools](https://github.com/chihqiang/vtools) | Apache-2.0 | 独立的 Vue 网页工具站，**只借鉴「卡片式工具集」的界面形态**，无代码关系 |
+| [helloklf/vtools](https://github.com/helloklf/vtools)（Scene / 骁龙工具箱） | GPL-3.0 | **只对齐功能清单**，未引用任何源码、未引入任何二进制；调度能力由 uperf 提供 |
+| [yc9559/uperf](https://github.com/yc9559/uperf) | Apache-2.0 | 真正的调度内核。本项目只读写它的文本配置，属外部互操作，不链接其代码 |
 
-## 2026-11-26 三次调整：原生调度面板换皮
+审计过程与证据见 [docs/GPL-审计-2026-11-27.md](docs/GPL-审计-2026-11-27.md)：dex 内 40 个类全为 `Ldev/local/netspeed/…`，`omarea` / `helloklf` / `vtools` / `kotlin` 命中数为 0。
 
-- 旧面板是系统默认灰色 LinearLayout + RadioGroup + Switch，跟网页主题完全不搭。
-- 重写为深色圆角卡片：`roundBg()` 画圆角/描边，自绘 `ToggleSwitch`（圆角轨道+白滑块），档位改成「圆点 + 中文 + 英文」的行式单选，选中行高亮蓝底+加粗，关掉窗口右上角 ✕，底部一个「关闭面板」幽灵按钮。
-- 面板固定宽度 336dp、位置 (14dp, 44dp)，避免超出可用高度被系统裁掉。
-- 开关整格可点（不只是那个小开关），面板打开时按 `ns.xml` 回填状态，和网页端保持一致。
+## 免责声明（请务必读）
 
-## 2026-11-26 四次调整：面板可拖动
+1. **作者与来历**：本项目的界面与代码由 AI 助手（豆包）在作者指导下编写，作者在自有设备上逐项实测验证。它是「AI 写代码 + 人验收」的产物，不是传统意义上的手工项目。
+2. **高风险操作**：本项目需要 root，会读写系统 sysfs、常驻前台服务、创建悬浮窗、执行 `su` shell。**只在你自己拥有、愿意承担风险的设备上使用**。刷机、变砖、数据丢失、硬件损坏、保修失效，均与作者无关。
+3. **按现状提供**：MIT 许可以「AS IS」提供，不附带任何明示或默示担保，包括但不限于适销性、特定用途适用性、无侵权。
+4. **机型与 ROM 差异**：代码里写死的 sysfs 路径与 uperf 文件格式来自上述测试机。别的设备上取不到数、切档无效、甚至异常耗电都属正常，作者不保证兼容。
+5. **不要用于他人设备或商业交付**：涉及 root 与调度参数的改动会直接影响设备稳定性，用于客户机器或量产环境风险自负。
+6. **图标素材**：`res/mipmap-*/ic_launcher.png` 为通用 3D 卡通形象，若你需要对外发布，请自行确认素材来源与授权。
 
-- 面板本身是 TYPE_APPLICATION_OVERLAY 窗口，位置写在 LayoutParams 里，拖动即改 lp.x/lp.y 后 updateViewLayout。
-- 拖动热区放在标题栏和面板空白区（`panel.setOnTouchListener` + `head` 同款监听），档位行/开关格/关闭按钮这些可点控件不受影响。
-- 位移超过 8px 才算拖动，松手写 `panelX`/`panelY` 到 ns.xml，下次弹出沿用上次位置。
+## 反馈
 
-## 2026-11-27 v2.1：许可口径与新增监控项
-
-### 许可口径（重要）
-
-- 参考对象更正为 [helloklf/vtools](https://github.com/helloklf/vtools)（即 Scene / 骁龙工具箱），其 LICENSE 为 **GPLv3**。
-- 本项目**不引用其任何源码**，只对齐功能思路：调度走 uperf 数据文件（`cur_powermode.txt` / `perapp_powermode.txt`），监控与提醒直读 sysfs。接口与文件格式不构成衍生作品，因此本项目不受 GPL 传染。
-- 如需引入 Scene 的代码，整个工程必须改为 GPLv3 并公开源码；分发 APK 才触发义务，自用不算。
-
-### 新增
-
-- **帧率记录升级**：每行记录 `时间,FPS,CPU 负载,GPU,最高频率,CPU 温度,电池温度,电流,电量`，上限 600 条，导出 `perf-<时间戳>.csv` 到 `/sdcard/NetSpeedLogs/`；统计行给出平均值、1% 低帧、卡顿条数。
-- **充电卡片**：120 秒双线曲线（电流 mA / 电量 %），行内显示充电状态、电量、电流电压。
-- **充电阈值提醒**：`chargeAlert` + `chargeLimit`（50~100%，默认 80%），由 MonitorService 在后台每秒检测电量与 `status`，达到阈值发一条 `ns-alert` 通知（同一充电周期只提醒一次，拔出或掉 3% 复位）。
-- **频率范围只读展示**：小核 0-3 与大核 4-7 的 `scaling_min_freq` / `scaling_max_freq`，明确标注由 uperf 托管。
-
-### 为什么没有做「CPU 频率上下限」滑杆
-
-实测本机（MT6771 / LineageOS 21 GSI）无法可靠改频：
-
-- `.../cpufreq/policy{0,4}/scaling_min_freq` 与 `scaling_max_freq` 权限是 `0444`，`echo` 直接 Permission denied；`scaling_governor` 可写但同样被 uperf 覆盖。
-- MTK 的 `/proc/ppm/policy/hard_userlimit_cpu_freq` 与 `userlimit_max_cpu_freq` 可写，但 uperf 自己就在用这套节点：连续写入 6 次，`scaling_max_freq` 在 1131→1625MHz 之间自行跳变，限制立刻被覆盖。
-- 结论：在这台机器上做滑杆只会得到一个假开关，因此只做只读展示，等以后换 ROM 或不装 uperf 时再评估。
-
-### 内核里没有停充节点
-
-- `battery/` 下无 `charging_enabled` / `input_suspend`；`/proc/mtk_battery_cmd/en_power_path` 写 0 后 `status` 仍是 Charging；`/sys/devices/platform/charger/input_current` 写入会被截断（写 100 读回 256，写 -1 读回 0）。
-- 所以「充电阈值」只能做到提醒，无法自动断电，UI 已按此写明。
-
+有问题请开 [Issue](https://github.com/Satellite18111/scheduler-pack/issues)，附上机型、ROM、`adb logcat -b crash -d` 以及「更多 → 导出诊断日志」生成的 `diag-*.txt`，比只说「用不了」有用得多。
+功能请求也欢迎，但请先看上面的「已知限制」——频率锁频和充电断电在测试机上做不到，不是漏做。
