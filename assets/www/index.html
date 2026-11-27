@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>调度包</title>
+<style>
+:root{
+  --bg:#0a0d12; --panel:#121821; --panel2:#171f2a; --line:#222b37;
+  --txt:#e8eef7; --sub:#8e9bae; --dim:#5f6b7c;
+  --accent:#5b9cff; --cyan:#35d0c0; --amber:#f5b544; --red:#f26d6d; --violet:#a78bfa;
+  --r:18px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:system-ui,-apple-system,"HarmonyOS Sans SC","MiSans","Noto Sans SC",sans-serif;
+  font-size:14px;line-height:1.45}
+body{padding:0 0 24px}
+.bgblob{position:fixed;inset:-120px auto auto -80px;width:320px;height:320px;pointer-events:none;
+  background:radial-gradient(circle at 40% 40%,rgba(91,156,255,.20),transparent 65%);filter:blur(6px)}
+.wrap{position:relative;max-width:1080px;margin:0 auto;padding:18px 16px 0}
+
+/* header */
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:52px;height:52px;border-radius:14px;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(140deg,#2b3d5c,#16202d);border:1px solid #26344a;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.logo img{width:100%;height:100%;object-fit:cover;display:block}
+h1{margin:0;font-size:19px;letter-spacing:.5px;font-weight:650}
+.sub{margin:2px 0 0;font-size:11.5px;color:var(--dim);letter-spacing:1.2px;text-transform:uppercase}
+.pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+  font-size:11.5px;background:#141b24;border:1px solid #232d3a;color:var(--sub)}
+.pill em{font-style:normal}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim)}
+.dot.on{background:var(--cyan);box-shadow:0 0 8px rgba(53,208,192,.6)}
+.dot.warn{background:var(--amber)}
+.dot.off{background:var(--red)}
+
+/* nav */
+nav{position:sticky;top:0;z-index:10;display:flex;gap:6px;overflow-x:auto;padding:4px;margin-bottom:16px;border-radius:999px;
+  background:rgba(17,24,34,.92);backdrop-filter:blur(8px);border:1px solid #1e2833;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;padding:8px 15px;border-radius:999px;border:0;background:transparent;
+  color:var(--sub);font-size:13px;font-family:inherit;transition:.18s}
+nav button.active{background:linear-gradient(140deg,#2f4a72,#243a5c);color:#fff;
+  box-shadow:0 4px 14px rgba(40,80,140,.35)}
+
+/* cards */
+.card{background:linear-gradient(160deg,#151d27,#111820);border:1px solid #202a36;
+  border-radius:var(--r);padding:16px;box-shadow:0 10px 26px rgba(0,0,0,.30)}
+.card+.card,section>*+*{margin-top:12px}
+.sec-title{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 10px}
+.sec-title h2{margin:0;font-size:13px;color:var(--sub);font-weight:600;letter-spacing:.6px}
+.sec-title .hint{font-size:11.5px;color:var(--dim)}
+
+/* home hero */
+.hero{position:relative;overflow:hidden;padding:18px}
+.hero .glow{position:absolute;right:-40px;top:-60px;width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle,rgba(91,156,255,.22),transparent 66%)}
+.hero .cap{font-size:12px;color:var(--dim);letter-spacing:.4px}
+.hero .mode{display:flex;align-items:baseline;gap:10px;margin:6px 0 2px}
+.hero .mode b{font-size:30px;font-weight:650;letter-spacing:.5px}
+.hero .mode span{font-size:12px;color:var(--sub)}
+.hero .quick{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px}
+.qbtn{padding:9px 0;border-radius:12px;border:1px solid #26313f;background:#182231;color:var(--sub);
+  font-size:12.5px;font-family:inherit;transition:.16s}
+.qbtn.active{border-color:#3f6ea8;background:linear-gradient(150deg,#27446b,#1d3350);color:#fff}
+.qbtn:active{transform:scale(.98)}
+
+/* tool grid */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:720px){.grid{grid-template-columns:repeat(3,1fr)}}
+.tool{position:relative;text-align:left;padding:15px 15px 13px;border-radius:16px;cursor:pointer;
+  border:1px solid #202a36;background:linear-gradient(155deg,#161f2a,#111821);color:var(--txt);
+  font-family:inherit;transition:.18s}
+.tool:active{transform:scale(.985);border-color:#33445a}
+.tool .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;margin-bottom:9px;
+  background:#1b2634;border:1px solid #253245}
+.tool .ic svg{width:17px;height:17px;stroke:#8fb6ff;fill:none;stroke-width:1.6}
+.tool .nm{font-size:14px;font-weight:600}
+.tool .ds{margin-top:3px;font-size:11.5px;color:var(--dim);line-height:1.4;min-height:32px}
+.tool .st{margin-top:8px;font-size:11.5px;color:var(--cyan)}
+
+/* rows */
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 2px;
+  border-bottom:1px solid #1c2531}
+.row:last-child{border-bottom:0}
+.row .t{font-size:13.5px}
+.row .d{font-size:11.5px;color:var(--dim);margin-top:2px}
+.row .v{font-size:13px;color:var(--sub);white-space:nowrap}
+.row.tap{cursor:pointer}
+.chev{color:var(--dim);font-size:14px;margin-left:4px}
+
+/* mode list */
+.modeitem{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid #1c2531;cursor:pointer}
+.modeitem:last-child{border-bottom:0}
+.radio{width:19px;height:19px;border-radius:50%;border:1.5px solid #314052;flex:0 0 auto;position:relative}
+.radio.on{border-color:var(--accent);background:rgba(91,156,255,.12)}
+.radio.on::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--accent)}
+.modeitem .nm{font-size:14px}
+.modeitem .ds{font-size:11.5px;color:var(--dim);margin-top:1px}
+.tag{margin-left:auto;font-size:11px;color:var(--dim);border:1px solid #253141;border-radius:8px;padding:2px 7px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:720px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{padding:13px 14px;border-radius:14px;background:#141c26;border:1px solid #202a36}
+.stat .k{font-size:11.5px;color:var(--dim)}
+.stat .v{font-size:23px;font-weight:650;margin-top:4px;letter-spacing:.4px}
+.stat .v small{font-size:11.5px;color:var(--sub);font-weight:400;margin-left:2px}
+canvas{width:100%;height:120px;display:block}
+.bars{display:flex;gap:6px;align-items:flex-end;height:96px;margin-top:6px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.bar .tl{width:100%;border-radius:5px 5px 3px 3px;background:linear-gradient(180deg,#5b9cff,#2f4b78);height:4px;transition:height .35s}
+.bar .lb{font-size:9.5px;color:var(--dim)}
+.bar .fq{font-size:9.5px;color:#6f7f93}
+
+/* apps */
+.search{width:100%;padding:11px 13px;border-radius:12px;border:1px solid #26313f;background:#121a24;
+  color:var(--txt);font-family:inherit;font-size:13px;outline:none}
+.applist{margin-top:10px}
+.approw{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid #1c2531;cursor:pointer}
+.approw:last-child{border-bottom:0}
+.avatar{width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;
+  background:#1b2634;border:1px solid #263141;font-size:12.5px;color:#9fb3cc}
+.appname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apppkg{font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpill{margin-left:auto;flex:0 0 auto;font-size:11px;padding:3px 8px;border-radius:8px;
+  background:#17212d;border:1px solid #26313f;color:#9fb3cc}
+.mpill.perf{color:#ffd9a0;border-color:#4a3a22;background:#241d12}
+.mpill.power{color:#9fe7dc;border-color:#1f4440;background:#102724}
+
+/* right-edge safe inset: landscape gesture zone swallows taps near the right border */
+.row,.modeitem{padding-right:58px}
+.approw{padding-right:58px}
+.mpilwrap{margin-right:0}
+
+/* switches */
+.sw{position:relative;width:44px;height:25px;border-radius:999px;background:#222c38;flex:0 0 auto;transition:.2s;cursor:pointer;pointer-events:none}
+.sw.on{background:linear-gradient(120deg,#3d6fb0,#5b9cff)}
+.sw i{position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#f2f6fb;transition:.2s}
+.sw.on i{left:22px}
+
+/* buttons */
+.btn{padding:11px 14px;border-radius:12px;border:1px solid #2a374a;background:#17212d;
+  color:var(--txt);font-family:inherit;font-size:13px;cursor:pointer}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:linear-gradient(140deg,#2f5a91,#274a77);border-color:#3a6296}
+.btn.block{display:block;width:100%;text-align:center}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.small{font-size:11.5px;color:var(--dim)}
+
+/* sheet */
+.sheet-mask{position:fixed;inset:0;background:rgba(4,7,11,.62);backdrop-filter:blur(3px);
+  display:none;align-items:flex-end;justify-content:center;z-index:20}
+.sheet-mask.show{display:flex}
+.sheet{width:100%;max-width:560px;background:#141c26;border:1px solid #26313f;border-bottom:0;
+  border-radius:22px 22px 0 0;padding:18px 18px 22px;box-shadow:0 -12px 40px rgba(0,0,0,.5)}
+.sheet h3{margin:0 0 4px;font-size:15px}
+.sheet .ph{font-size:11.5px;color:var(--dim);margin-bottom:12px}
+.opt{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid #1c2531}
+.opt:last-child{border-bottom:0}
+.opt .nm{font-size:13.5px}
+.opt .ds{font-size:11px;color:var(--dim)}
+.opt .mk{margin-left:auto;color:var(--accent);font-size:13px}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:36px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  padding:10px 16px;border-radius:12px;background:#1d2836;border:1px solid #2c3a4d;color:#dce7f5;
+  font-size:12.5px;transition:.22s;z-index:30;max-width:86vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* misc */
+.kv{display:grid;grid-template-columns:88px 1fr;gap:6px 10px;font-size:12.5px}
+.kv .k{color:var(--dim)}
+.kv .v{color:#cfdaeb;word-break:break-all}
+.divider{height:1px;background:#1c2531;margin:12px 0}
+.page{display:none}
+.page.show{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="bgblob"></div>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"><img src="icon.png" alt="调度包"></div>
+      <div>
+        <h1>调度包</h1>
+        <p class="sub">Scheduling Toolkit</p>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill" id="pillRoot"><i class="dot"></i><em id="tRoot">检测中</em></span>
+      <span class="pill" id="pillUperf"><i class="dot"></i><em id="tUperf">uperf</em></span>
+      <span class="pill" id="pillMode"><i class="dot warn"></i><em id="tMode">-</em></span>
+    </div>
+  </header>
+
+  <nav id="nav">
+    <button data-page="home" class="active">首页</button>
+    <button data-page="sched">调度</button>
+    <button data-page="monitor">监控</button>
+    <button data-page="apps">应用</button>
+    <button data-page="more">更多</button>
+  </nav>
+
+  <!-- ============ 首页 ============ -->
+  <section class="page show" id="page-home">
+    <div class="card hero">
+      <div class="glow"></div>
+      <div class="cap">当前全局调度</div>
+      <div class="mode"><b id="heroMode">-</b><span id="heroModeEn">uperf</span></div>
+      <div class="small" id="heroSub">等待 root 与 uperf 状态…</div>
+      <div class="quick" id="quickModes"></div>
+    </div>
+
+    <div class="sec-title"><h2>工具</h2><span class="hint">点击进入</span></div>
+    <div class="grid">
+      <button class="tool" data-go="monitor">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 3 12 2-6h5"/></svg></div>
+        <div class="nm">实时监控</div><div class="ds">帧率 / 逐核频率 / 负载 / 温度</div>
+        <div class="st" id="tileMonitor">-</div>
+      </button>
+      <button class="tool" data-go="apps">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg></div>
+        <div class="nm">分应用调度</div><div class="ds">按包名指定档位，走 uperf 规则</div>
+        <div class="st" id="tileApps">-</div>
+      </button>
+      <button class="tool" data-go="more" data-focus="overlay">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5L12 3z"/><path d="M4 12.5L12 17l8-4.5"/></svg></div>
+        <div class="nm">悬浮窗</div><div class="ds">网速 / FPS / 频率 / 温度叠加显示</div>
+        <div class="st" id="tileOverlay">-</div>
+      </button>
+      <button class="tool" data-go="more" data-focus="log">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg></div>
+        <div class="nm">日志导出</div><div class="ds">crash / ANR / system / dmesg 打包</div>
+        <div class="st" id="tileLog">/sdcard/NetSpeedLogs</div>
+      </button>
+      <button class="tool" data-go="more" data-focus="auto">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></div>
+        <div class="nm">自动化</div><div class="ds">充电联动、温度保护回落</div>
+        <div class="st" id="tileAuto">-</div>
+      </button>
+      <button class="tool" data-go="more" data-focus="device">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/></svg></div>
+        <div class="nm">设备信息</div><div class="ds">SoC / CPU / GPU / 系统版本</div>
+        <div class="st" id="tileDevice">-</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ 调度 ============ -->
+  <section class="page" id="page-sched">
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 6px"><h2>全局模式</h2><span class="hint" id="schedStatus">-</span></div>
+      <div id="modeList"></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 6px"><h2>分应用默认规则</h2><span class="hint">uperf</span></div>
+      <div class="row tap" id="rowDefault">
+        <div><div class="t">默认规则（所有应用）</div><div class="d">未单独指定的应用走此档</div></div>
+        <div class="v"><span id="defaultModeTxt">-</span><span class="chev">›</span></div>
+      </div>
+      <div class="row tap" id="rowOff">
+        <div><div class="t">熄屏规则</div><div class="d">屏幕关闭时生效</div></div>
+        <div class="v"><span id="offModeTxt">-</span><span class="chev">›</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 6px"><h2>面板与通知</h2></div>
+      <div class="btnrow">
+        <button class="btn" onclick="Native.showPanel()">弹出调度面板</button>
+        <button class="btn" onclick="Native.startServiceNow()">重启监控服务</button>
+      </div>
+      <p class="small" style="margin:10px 0 0">通知栏常驻「调度包」，点正文即弹面板，三个快捷按钮可切性能 / 均衡 / 省电。</p>
+    </div>
+  </section>
+
+  <!-- ============ 监控 ============ -->
+  <section class="page" id="page-monitor">
+    <div class="stats">
+      <div class="stat"><div class="k">帧率 FPS</div><div class="v" id="stFps">-<small>fps</small></div></div>
+      <div class="stat"><div class="k">CPU 负载</div><div class="v" id="stLoad">-<small>%</small></div></div>
+      <div class="stat"><div class="k">GPU 占用</div><div class="v" id="stGpu">-<small>%</small></div></div>
+      <div class="stat"><div class="k">最高频率</div><div class="v" id="stFreq">-<small>MHz</small></div></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 2px"><h2>负载曲线</h2><span class="hint">近 60 秒</span></div>
+      <canvas id="chart"></canvas>
+      <div class="small" style="margin-top:6px"><span style="color:#5b9cff">■</span> CPU 负载　<span style="color:#35d0c0">■</span> GPU 占用</div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 2px"><h2>逐核状态</h2><span class="hint" id="burnHint"></span></div>
+      <div class="bars" id="coreBars"></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 2px"><h2>充电</h2><span class="hint" id="chgHint">-</span></div>
+      <canvas id="bchart"></canvas>
+      <div class="small" style="margin-top:6px"><span style="color:#f5b544">■</span> 电流 mA　<span style="color:#35d0c0">■</span> 电量 %（近 120 秒）</div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div class="t">内存</div><div class="v" id="memTxt">-</div></div>
+      <div class="row"><div class="t">电池电流 / 电压</div><div class="v" id="battTxt">-</div></div>
+      <div class="row"><div class="t">充电状态</div><div class="v" id="chgTxt">-</div></div>
+      <div class="row"><div class="t">CPU 温度</div><div class="v" id="cpuTempTxt">-</div></div>
+      <div class="row"><div class="t">电池温度</div><div class="v" id="battTempTxt">-</div></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 6px"><h2>频率范围</h2><span class="hint">由 uperf 托管，只读</span></div>
+      <div class="row"><div class="t">小核 0-3（min / max）</div><div class="v" id="freq0Txt">-</div></div>
+      <div class="row"><div class="t">大核 4-7（min / max）</div><div class="v" id="freq4Txt">-</div></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title" style="margin:0 0 6px"><h2>帧率记录</h2><span class="hint" id="fpsStat">未开始</span></div>
+      <div class="btnrow">
+        <button class="btn" id="fpsBtn">开始记录</button>
+        <button class="btn" id="fpsExport">导出 CSV</button>
+      </div>
+      <p class="small" style="margin:10px 0 0">每行含时间、FPS、CPU 负载、GPU、最高频率、CPU/电池温度、电流、电量，上限 600 条，导出到 /sdcard/NetSpeedLogs/。</p>
+    </div>
+  </section>
+
+  <!-- ============ 应用 ============ -->
+  <section class="page" id="page-apps">
+    <div class="card">
+      <input class="search" id="appSearch" placeholder="搜索应用名或包名…">
+      <div class="small" style="margin-top:10px">点应用选择档位；「跟随默认」即删除该应用规则。</div>
+      <div class="applist" id="appList"><div class="small">读取中…</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 更多 ============ -->
+  <section class="page" id="page-more">
+    <div class="card" id="secOverlay">
+      <div class="sec-title" style="margin:0 0 6px"><h2>悬浮窗显示项</h2><span class="hint">点悬浮窗可调</span></div>
+      <div id="overlayRows"></div>
+      <div class="divider"></div>
+      <div class="btnrow">
+        <button class="btn" onclick="Native.showPanel()">弹出面板</button>
+        <button class="btn" onclick="Native.openOverlaySettings()">悬浮窗权限</button>
+      </div>
+    </div>
+
+    <div class="card" id="secAuto">
+      <div class="sec-title" style="margin:0 0 6px"><h2>自动化</h2><span class="hint">服务内生效</span></div>
+      <div class="row"><div><div class="t">充电自动调度</div><div class="d">接入电源切指定档，断开回均衡</div></div>
+        <div class="sw" id="swAutoCharge"><i></i></div></div>
+      <div class="row"><div class="t">充电时档位</div><div class="v"><span id="chargeModeTxt">-</span><span class="chev" id="chgChv">›</span></div></div>
+      <div class="row"><div><div class="t">温度保护</div><div class="d">超阈值降档并提醒，回落 3°C 恢复</div></div>
+        <div class="sw" id="swAutoTemp"><i></i></div></div>
+      <div class="row"><div><div class="t">温度阈值</div><div class="d">30~70°C，取 CPU / 电池较高值</div></div>
+        <div class="v" id="thrTxt">45°C</div></div>
+      <div class="row"><div class="t">超温降至</div><div class="v"><span id="tempModeTxt">-</span><span class="chev" id="tmpChv">›</span></div></div>
+      <div class="row"><div><div class="t">充电阈值提醒</div><div class="d">电量到阈值时发通知；本机内核无停充节点，只提醒不切断</div></div>
+        <div class="sw" id="swChargeAlert"><i></i></div></div>
+      <div class="row"><div><div class="t">提醒阈值</div><div class="d">50%~100%</div></div>
+        <div class="v" id="chgLimitTxt">80%</div></div>
+    </div>
+
+    <div class="card" id="secLog">
+      <div class="sec-title" style="margin:0 0 6px"><h2>日志</h2><span class="hint">/sdcard/NetSpeedLogs</span></div>
+      <button class="btn block" onclick="Native.exportDiag()">导出诊断日志（崩溃 / ANR / 系统 / 内核）</button>
+      <div class="divider"></div>
+      <div class="small" id="logStatus">暂无导出记录</div>
+    </div>
+
+    <div class="card" id="secDevice">
+      <div class="sec-title" style="margin:0 0 6px"><h2>设备信息</h2><span class="hint">静态</span></div>
+      <div class="kv" id="devInfo"><div class="k">状态</div><div class="v">读取中…</div></div>
+      <div class="divider"></div>
+      <div class="btnrow">
+        <button class="btn" onclick="Native.refreshInfo()">重新读取</button>
+        <button class="btn" onclick="Native.showPanel()">调度面板</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small">调度包 2.1 · 网页 UI 版<br>自研实现：调度走 uperf 数据文件，监控与提醒直读 sysfs，不引用任何第三方源码。</div>
+    </div>
+  </section>
+</div>
+
+<div class="sheet-mask" id="mask">
+  <div class="sheet">
+    <h3 id="sheetTitle">选择档位</h3>
+    <div class="ph" id="sheetSub">-</div>
+    <div id="sheetOpts"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const MODES=[
+  ["auto","自动","交给 uperf 自行判断负载与场景"],
+  ["balance","均衡","日常使用，性能与功耗折中"],
+  ["powersave","省电","压低频率上限，优先续航"],
+  ["performance","性能","抬高频率上限，稳住高帧"],
+  ["fast","极速","激进提频，发热与耗电明显"]
+];
+const LABEL={auto:"自动",balance:"均衡",powersave:"省电",performance:"性能",fast:"极速"};
+const S={snap:null,info:null,prefs:{},apps:null,rules:{d:"balance",o:"powersave"},
+         samples:[],gpSamples:[],chargeSamples:[],capSamples:[],rec:[],recording:false,page:"home"};
+const OVERLAYS=[["showSpeed","网速"],["showFps","帧率 FPS"],["showCpu","CPU 频率"],
+                ["showGpu","GPU 频率"],["showCpuTemp","CPU 温度"],["showBattTemp","电池温度"]];
+
+function $(id){return document.getElementById(id)}
+function toast(t){const el=$("toast");el.textContent=t;el.classList.add("show");
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove("show"),1800)}
+function hasNative(){return !!window.Native}
+
+/* ---------- native events ---------- */
+window.__ev=function(raw){
+  let o; try{o=JSON.parse(raw)}catch(e){return}
+  if(o.type==="snap") return onSnap(o);
+  if(o.type==="info") return onInfo(o);
+  if(o.type==="apps") return onApps(o);
+  if(o.type==="log"){$("logStatus").textContent=o.text;toast(o.text);return}
+  if(o.type==="toast") return toast(o.text);
+};
+
+function onSnap(o){
+  S.snap=o;
+  S.samples.push(o.load||0); S.gpSamples.push(o.gpu>=0?o.gpu:0);
+  if(S.samples.length>60){S.samples.shift();S.gpSamples.shift()}
+  S.chargeSamples.push(o.battMa||0); S.capSamples.push(o.cap>=0?o.cap:0);
+  if(S.chargeSamples.length>120){S.chargeSamples.shift();S.capSamples.shift()}
+  if(S.recording){
+    let mf=0;(o.freqs||[]).forEach(f=>{if(f>mf)mf=f});
+    S.rec.push({t:new Date().toLocaleTimeString("zh-CN",{hour12:false}),fps:o.fps,
+      load:o.load,gpu:o.gpu,maxf:Math.round(mf/1000),ct:o.cpuTemp,bt:o.battTemp,
+      ma:Math.round(o.battMa||0),cap:o.cap});
+    if(S.rec.length>600)S.rec.shift();
+  }
+  updatePills(); updateHero(); updateTiles(); if(S.page==="monitor") updateMonitor(o);
+  if(S.page==="sched") syncSched();
+}
+
+function updatePills(){
+  const s=S.snap; if(!s)return;
+  setDot("pillRoot", true, "root 就绪");
+  setDot("pillUperf", !!s.daemon, s.daemon?"uperf 运行":"uperf 未运行");
+  const mp=$("pillMode");
+  mp.querySelector(".dot").className="dot "+(s.daemon?"on":"warn");
+  $("tMode").textContent=LABEL[s.mode]||s.mode||"-";
+}
+
+function setDot(pillId,ok,text){
+  const p=$(pillId); if(!p) return;
+  const d=p.querySelector(".dot"); if(d) d.className="dot "+(ok?"on":"off");
+  const t=p.querySelector("em"); if(t && text) t.textContent=text;
+}
+
+function updateHero(){
+  const s=S.snap; if(!s)return;
+  $("heroMode").textContent=LABEL[s.mode]||s.mode||"-";
+  $("heroModeEn").textContent=s.mode||"uperf";
+  $("heroSub").textContent=(s.daemon?"uperf 守护运行中":"uperf 未运行")+
+    " · CPU "+(s.load>=0?s.load+"%":"-")+" · GPU "+(s.gpu>=0?s.gpu+"%":"-")+
+    " · FPS "+(s.fps>=0?s.fps.toFixed(1):"-");
+  [...$("quickModes").children].forEach(b=>b.classList.toggle("active",b.dataset.m===s.mode));
+}
+
+function updateTiles(){
+  const s=S.snap; if(!s)return;
+  $("tileMonitor").textContent="FPS "+(s.fps>=0?s.fps.toFixed(1):"-")+" · CPU "+(s.load>=0?s.load+"%":"-");
+  const ovOn=OVERLAYS.filter(([k])=>S.prefs[k]!==undefined?S.prefs[k]:(k==="showSpeed")).length;
+  $("tileOverlay").textContent=ovOn+" 项显示中";
+  $("tileAuto").textContent=(S.prefs.autoCharge?"充电":"")+(S.prefs.autoTemp?(S.prefs.autoCharge?" + ":"")+"温控":"")||"均未开启";
+  if(S.apps)$("tileApps").textContent=S.apps.list.length+" 个应用 · 默认"+(LABEL[S.rules.d]||"-");
+  if(S.info)$("tileDevice").textContent=S.info.soc;
+}
+
+function updateMonitor(o){
+  $("stFps").innerHTML=(o.fps>=0?o.fps.toFixed(1):"-")+"<small>fps</small>";
+  $("stLoad").innerHTML=(o.load>=0?o.load:"-")+"<small>%</small>";
+  $("stGpu").innerHTML=(o.gpu>=0?o.gpu:"-")+"<small>%</small>";
+  let maxFreq=0; (o.freqs||[]).forEach(f=>{if(f>maxFreq)maxFreq=f});
+  $("stFreq").innerHTML=(maxFreq>0?Math.round(maxFreq/1000):"-")+"<small>MHz</small>";
+  drawChart();
+  const bars=$("coreBars"); if(bars.children.length!==8){bars.innerHTML="";
+    for(let i=0;i<8;i++)bars.appendChild(el("div","bar",
+      '<div class="fq"></div><div class="tl"></div><div class="lb">'+(i+1)+'</div>'));}
+  for(let i=0;i<8;i++){
+    const b=bars.children[i]; const load=(o.cores||[])[i]||0; const fq=(o.freqs||[])[i]||0;
+    b.querySelector(".tl").style.height=Math.max(3,Math.min(84,load))+"px";
+    b.querySelector(".fq").textContent=fq>0?Math.round(fq/1000):"-";
+  }
+  if(o.memTotal>0){const used=(o.memTotal-(o.memAvail<0?0:o.memAvail))/1024;
+    $("memTxt").textContent=(o.memAvail<0?"-":Math.round(used)+"MB / "+Math.round(o.memTotal/1024)+"MB")}
+  $("battTxt").textContent=(o.battV>0?Math.round(o.battMa)+"mA / "+o.battV.toFixed(2)+"V":"-");
+  $("chgTxt").textContent=o.cap>=0?(o.charging?"充电中":"未充电")+" · "+o.cap+"%":"-";
+  $("chgHint").textContent=o.charging?(o.cap>=0?"充电中 "+o.cap+"%":"充电中"):"未接电源";
+  $("freq0Txt").textContent=fmtRange(o.pmin0,o.pmax0);
+  $("freq4Txt").textContent=fmtRange(o.pmin4,o.pmax4);
+  drawChargeChart();
+  $("cpuTempTxt").textContent=o.cpuTemp>0?o.cpuTemp.toFixed(1)+" °C":"-";
+  $("battTempTxt").textContent=o.battTemp>0?o.battTemp.toFixed(1)+" °C":"-";
+  updateFpsStat();
+}
+
+function el(tag,cls,html){const d=document.createElement(tag);if(cls)d.className=cls;if(html)d.innerHTML=html;return d}
+
+/* ---------- chart ---------- */
+let chartCtx=null;
+function drawChart(){
+  const c=$("chart"); if(!c)return;
+  const dpr=window.devicePixelRatio||1; const w=c.clientWidth||320; const h=120;
+  if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr)}
+  chartCtx=c.getContext("2d"); const ctx=chartCtx; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle="#1e2835"; ctx.lineWidth=1;
+  [0.25,0.5,0.75].forEach(p=>{ctx.beginPath();ctx.moveTo(0,h*p);ctx.lineTo(w,h*p);ctx.stroke()});
+  const draw=(arr,color)=>{if(arr.length<2)return; ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2;
+    arr.forEach((v,i)=>{const x=i/(60-1)*w; const y=h-(Math.min(100,Math.max(0,v))/100)*h;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y)}); ctx.stroke();
+    ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+    const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,color+"33"); g.addColorStop(1,color+"00");
+    ctx.fillStyle=g; ctx.fill();};
+  draw(S.samples,"#5b9cff"); draw(S.gpSamples,"#35d0c0");
+}
+
+/* ---------- charge chart ---------- */
+function fmtRange(min,max){
+  if(!(min>0)||!(max>0))return "-";
+  return Math.round(min/1000)+" / "+Math.round(max/1000)+" MHz";
+}
+function drawChargeChart(){
+  const c=$("bchart"); if(!c)return;
+  const dpr=window.devicePixelRatio||1; const w=c.clientWidth||320; const h=120;
+  if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr)}
+  const ctx=c.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle="#1e2835"; ctx.lineWidth=1;
+  [0.25,0.5,0.75].forEach(p=>{ctx.beginPath();ctx.moveTo(0,h*p);ctx.lineTo(w,h*p);ctx.stroke()});
+  const N=120;
+  const amps=S.chargeSamples.map(v=>Math.abs(v));
+  const maxA=Math.max(500,...amps);
+  const line=(arr,pick,color)=>{if(arr.length<2)return; ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2;
+    arr.forEach((v,i)=>{const x=i/(N-1)*w; const y=h-Math.min(1,Math.max(0,pick(v)))*h;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y)}); ctx.stroke();};
+  line(amps,v=>v/maxA,"#f5b544");
+  line(S.capSamples,v=>v/100,"#35d0c0");
+}
+
+/* ---------- fps ---------- */
+function updateFpsStat(){
+  const n=S.rec.length; const lab=$("fpsStat");
+  if(!n){lab.textContent=S.recording?"记录中…":"未开始";return}
+  const vals=S.rec.map(r=>r.fps).filter(f=>f>=0);
+  if(!vals.length){lab.textContent="记录中 · "+n+" 条（暂无帧率数据）";return}
+  const arr=[...vals].sort((a,b)=>a-b); const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const p1=arr[Math.max(0,Math.floor(arr.length/100))];
+  const jank=vals.filter(f=>f<30).length;
+  lab.textContent="平均 "+avg.toFixed(1)+" · 1%低 "+p1.toFixed(1)+" · 卡顿 "+jank+" · "+n+" 条";
+}
+
+/* ---------- render pages ---------- */
+function renderQuick(){
+  const box=$("quickModes"); box.innerHTML="";
+  MODES.forEach(([id,label])=>{
+    const b=el("button","qbtn",label); b.dataset.m=id;
+    b.onclick=()=>{if(!hasNative())return toast("原生接口不可用");
+      Native.setMode(id); S.snap&&(S.snap.mode=id); updateHero(); renderModes(); toast("已切换到 "+label)};
+    box.appendChild(b);
+  });
+  if(S.snap)[...box.children].forEach(b=>b.classList.toggle("active",b.dataset.m===S.snap.mode));
+}
+
+function renderModes(){
+  const box=$("modeList"); box.innerHTML="";
+  const cur=S.snap&&S.snap.mode;
+  MODES.forEach(([id,label,desc])=>{
+    const r=el("div","modeitem",'<div class="radio'+(cur===id?" on":"")+'"></div><div><div class="nm">'+label+'</div><div class="ds">'+desc+'</div></div><div class="tag">'+id+'</div>');
+    r.onclick=()=>{if(!hasNative())return toast("原生接口不可用");
+      Native.setMode(id); if(S.snap)S.snap.mode=id; renderModes(); updateHero(); toast("已切到 "+label)};
+    box.appendChild(r);
+  });
+  $("schedStatus").textContent=(S.snap&&S.snap.daemon?"uperf 运行中":"uperf 未运行");
+}
+
+/* 调度页在数据到达/切换后同步选中态，避免首次进入早于快照导致全未选 */
+function syncSched(){
+  const box=$("modeList"), cur=S.snap&&S.snap.mode;
+  if(box)[...box.children].forEach(r=>{
+    const t=r.querySelector(".tag"), radio=r.querySelector(".radio");
+    if(radio&&t) radio.classList.toggle("on",t.textContent===cur);
+  });
+  const st=$("schedStatus"); if(st) st.textContent=(S.snap&&S.snap.daemon&&S.snap.daemon!==0?"uperf 运行中":"uperf 未运行");
+  if(S.rules){
+    const d=$("defaultModeTxt"), o=$("offModeTxt");
+    if(d&&S.rules.d) d.textContent=LABEL[S.rules.d]||S.rules.d;
+    if(o&&S.rules.o) o.textContent=LABEL[S.rules.o]||S.rules.o;
+  }
+}
+
+function renderOverlays(){
+  const box=$("overlayRows"); if(!box)return;
+  box.innerHTML="";
+  OVERLAYS.forEach(([key,label])=>{
+    const on=S.prefs[key]!==undefined?!!S.prefs[key]:(key==="showSpeed");
+    const row=el("div","row",'<div class="t">'+label+'</div><div class="sw'+(on?" on":"")+'"><i></i></div>');
+    const sw=row.querySelector(".sw"); 
+    row.onclick=()=>{const next=!sw.classList.contains("on");
+      sw.classList.toggle("on",next); S.prefs[key]=next;
+      if(hasNative())Native.setPref(key,String(next)); updateTiles();};
+    box.appendChild(row);
+  });
+}
+
+function renderAuto(){
+  const ac=!!S.prefs.autoCharge, at=!!S.prefs.autoTemp;
+  $("swAutoCharge").classList.toggle("on",ac);
+  $("swAutoCharge").parentElement.onclick=()=>{const n=!$("swAutoCharge").classList.contains("on");
+    $("swAutoCharge").classList.toggle("on",n); S.prefs.autoCharge=n;
+    if(hasNative())Native.setPref("autoCharge",String(n)); updateTiles()};
+  $("swAutoTemp").classList.toggle("on",at);
+  $("swAutoTemp").parentElement.onclick=()=>{const n=!$("swAutoTemp").classList.contains("on");
+    $("swAutoTemp").classList.toggle("on",n); S.prefs.autoTemp=n;
+    if(hasNative())Native.setPref("autoTemp",String(n)); updateTiles()};
+  $("thrTxt").textContent=(S.prefs.tempThreshold||45)+"°C";
+  $("chargeModeTxt").textContent=LABEL[S.prefs.chargeMode||"balance"];
+  $("tempModeTxt").textContent=LABEL[S.prefs.tempMode||"powersave"];
+  $("chgChv").onclick=e=>{e.stopPropagation();pickPrefMode("chargeMode","充电时档位")};
+  $("tmpChv").onclick=e=>{e.stopPropagation();pickPrefMode("tempMode","超温降到")};
+  $("thrTxt").onclick=()=>{const v=prompt("温度阈值（30~70°C）",String(S.prefs.tempThreshold||45));
+    if(v===null)return; const n=Math.max(30,Math.min(70,parseInt(v)||45));
+    S.prefs.tempThreshold=n; $("thrTxt").textContent=n+"°C";
+    if(hasNative())Native.setPref("tempThreshold",String(n)); toast("阈值 "+n+"°C")};
+
+  const ca=!!S.prefs.chargeAlert;
+  $("swChargeAlert").classList.toggle("on",ca);
+  $("swChargeAlert").parentElement.onclick=()=>{const n=!$("swChargeAlert").classList.contains("on");
+    $("swChargeAlert").classList.toggle("on",n); S.prefs.chargeAlert=n;
+    if(hasNative())Native.setPref("chargeAlert",String(n));
+    toast(n?"充电阈值提醒已开":"充电阈值提醒已关")};
+  $("chgLimitTxt").textContent=(S.prefs.chargeLimit||80)+"%";
+  $("chgLimitTxt").onclick=()=>{const v=prompt("提醒阈值（50~100%）",String(S.prefs.chargeLimit||80));
+    if(v===null)return; const n=Math.max(50,Math.min(100,parseInt(v)||80));
+    S.prefs.chargeLimit=n; $("chgLimitTxt").textContent=n+"%";
+    if(hasNative())Native.setPref("chargeLimit",String(n)); toast("提醒阈值 "+n+"%")};
+}
+
+function pickPrefMode(key,title){
+  openSheet(title,LABEL[S.prefs[key]||""],MODES.map(([id,label,desc])=>({id,label,desc})),(m)=>{
+    S.prefs[key]=m; $("chargeModeTxt").textContent=LABEL[S.prefs.chargeMode||"balance"];
+    $("tempModeTxt").textContent=LABEL[S.prefs.tempMode||"powersave"];
+    if(hasNative())Native.setPref(key,m); toast(title+" → "+LABEL[m]);
+  });
+}
+
+function renderDefaultRows(){
+  $("defaultModeTxt").textContent=LABEL[S.rules.d]||"-";
+  $("offModeTxt").textContent=LABEL[S.rules.o]||"-";
+}
+$("rowDefault").onclick=()=>openSheet("默认规则","未单独指定的应用走此档",
+  MODES.map(([id,label,desc])=>({id,label,desc})),(m)=>{S.rules.d=m;renderDefaultRows();
+    if(hasNative())Native.setDefaultRule(m);toast("默认规则 → "+LABEL[m])});
+$("rowOff").onclick=()=>openSheet("熄屏规则","屏幕关闭时生效",
+  MODES.map(([id,label,desc])=>({id,label,desc})),(m)=>{S.rules.o=m;renderDefaultRows();
+    if(hasNative())Native.setOffscreenRule(m);toast("熄屏规则 → "+LABEL[m])});
+
+/* ---------- sheet ---------- */
+let sheetPick=null;
+function openSheet(title,sub,opts,onPick){
+  $("sheetTitle").textContent=title; $("sheetSub").textContent=sub||"-";
+  const box=$("sheetOpts"); box.innerHTML=""; sheetPick=onPick;
+  opts.forEach(o=>{
+    const row=el("div","opt",'<div><div class="nm">'+o.label+'</div><div class="ds">'+(o.desc||"")+'</div></div><div class="mk">'+(o.mark||"")+'</div>');
+    row.onclick=()=>{closeSheet(); sheetPick&&sheetPick(o.id)};
+    box.appendChild(row);
+  });
+  const cancel=el("div","opt",'<div class="nm" style="color:#8e9bae">取消</div>');
+  cancel.onclick=closeSheet; box.appendChild(cancel);
+  $("mask").classList.add("show");
+}
+function closeSheet(){$("mask").classList.remove("show")}
+$("mask").onclick=e=>{if(e.target.id==="mask")closeSheet()};
+
+/* ---------- apps ---------- */
+function onApps(o){
+  S.apps=o; S.rules.d=o.defaultMode; S.rules.o=o.offscreenMode;
+  renderDefaultRows(); updateTiles(); renderApps();
+}
+function renderApps(){
+  if(!S.apps)return;
+  const q=($("appSearch").value||"").trim().toLowerCase();
+  const list=S.apps.list.filter(a=>!q||a.label.toLowerCase().includes(q)||a.pkg.toLowerCase().includes(q));
+  const box=$("appList"); box.innerHTML="";
+  if(!list.length){box.innerHTML='<div class="small">没有匹配的应用</div>';return}
+  list.slice(0,120).forEach(a=>{
+    const mode=a.explicit||"";
+    const cls=mode==="performance"||mode==="fast"?"perf":(mode==="powersave"?"power":"");
+    const pill='<div class="mpill '+cls+'">'+(mode?LABEL[mode]:"默认·"+(LABEL[S.rules.d]||""))+'</div>';
+    const row=el("div","approw",'<div class="avatar">'+(a.label||"?")[0].toUpperCase()+'</div><div style="min-width:0"><div class="appname">'+esc(a.label)+'</div><div class="apppkg">'+esc(a.pkg)+'</div></div>'+pill);
+    row.onclick=()=>openSheet(a.label,esc(a.pkg),
+      MODES.map(([id,label,desc])=>({id,label,desc})).concat([{id:"",label:"跟随默认",desc:"删除该应用单独规则"}]),
+      (m)=>{if(!hasNative())return;
+        if(m)Native.setRule(a.pkg,m); else Native.setRule(a.pkg,"");
+        toast(a.label+" → "+(m?LABEL[m]:"跟随默认"))});
+    box.appendChild(row);
+  });
+}
+$("appSearch").addEventListener("input",renderApps);
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+/* ---------- info ---------- */
+function onInfo(o){
+  S.info=o;
+  $("devInfo").innerHTML=[["SoC",o.soc],["CPU 型号",o.cpuModel],["CPU 架构",o.cpuArch],
+    ["指令集",o.abi],["核心",o.cores],["线程",o.threads],["GPU",o.gpuName+"，"+(o.gpuCores||"")],
+    ["系统",o.androidVer],["root",o.root?"已授权":"未授权"]]
+    .map(([k,v])=>'<div class="k">'+k+'</div><div class="v">'+esc(v||"-")+'</div>').join("");
+  $("tileDevice").textContent=o.soc||"-";
+  setDot("pillRoot",!!o.root,o.root?"root 就绪":"root 未授权");
+}
+
+/* ---------- nav ---------- */
+function go(page){
+  S.page=page;
+  [...document.querySelectorAll(".page")].forEach(p=>p.classList.remove("show"));
+  $("page-"+page).classList.add("show");
+  [...$("nav").children].forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  if(page==="monitor"){drawChart(); drawChargeChart(); if(S.snap)updateMonitor(S.snap)}
+  if(page==="sched"){syncSched(); if(hasNative())Native.refreshInfo()}    /* 本页无独立数据接口，靠 refreshInfo 触发重读 */
+  if(page==="apps" && hasNative())Native.requestApps();
+}
+$("nav").onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.page)};
+/* 顶部品牌区只做标识，不再兼任“设置”入口 */
+document.querySelectorAll(".tool").forEach(t=>t.onclick=()=>{
+  go(t.dataset.go);
+  const f=t.dataset.focus;
+  if(f){const el2=$("sec"+f[0].toUpperCase()+f.slice(1)); if(el2)setTimeout(()=>el2.scrollIntoView({behavior:"smooth",block:"start"}),60)}
+});
+
+/* ---------- fps buttons ---------- */
+$("fpsBtn").onclick=()=>{S.recording=!S.recording;
+  if(S.recording){S.rec=[];toast("开始记录")}
+  $("fpsBtn").textContent=S.recording?"停止记录":"开始记录";
+  $("fpsBtn").classList.toggle("primary",S.recording); updateFpsStat()};
+$("fpsExport").onclick=()=>{
+  if(!S.rec.length)return toast("还没有采样");
+  const head="time,fps,cpu_load,gpu,max_mhz,cpu_temp,batt_temp,mA,capacity\n";
+  const rows=S.rec.map(r=>[r.t,(r.fps>=0?r.fps.toFixed(2):""),r.load>=0?r.load:"",
+    r.gpu>=0?r.gpu:"",r.maxf||"",r.ct>0?r.ct.toFixed(1):"",r.bt>0?r.bt.toFixed(1):"",
+    r.ma,r.cap].join(",")).join("\n");
+  if(hasNative())Native.exportCsv("perf",head+rows+"\n"); else toast("原生接口不可用");
+};
+
+/* ---------- init ---------- */
+(function init(){
+  renderQuick(); renderModes(); renderOverlays(); renderAuto(); renderDefaultRows();
+  if(!hasNative()){toast("未检测到原生接口，可能不在 App 内运行");return}
+  try{const p=JSON.parse(Native.getPrefs()||"{}"); S.prefs=p||{}}catch(e){S.prefs={}}
+  renderOverlays(); renderAuto();
+  Native.requestApps(); Native.refreshInfo();
+})();
+
+setInterval(()=>{ if(S.page==="monitor"&&S.snap) updateMonitor(S.snap) },1000);
+window.addEventListener("resize",()=>{if(S.page==="monitor"){drawChart();drawChargeChart()}});
+</script>
+</body>
+</html>
